@@ -339,7 +339,7 @@
     <div class="container">
         <div class="lotus-decoration"></div>
         <h1 class="title">PDF Page Reverser</h1>
-        <p class="subtitle">Prepare PDF for duplex printing with inverted back pages</p>
+        <p class="subtitle">Create booklet layout: combine pages 1&3 (front) with inverted 2&4 (back)</p>
         <div class="tibetan-pattern"></div>
         
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
@@ -363,9 +363,9 @@
         <div class="explanation">
             <h3>What this application does</h3>
             <p>Uploads your PDF file safely within your browser</p>
-            <p>Prepares PDF for duplex (double-sided) printing</p>
-            <p>Arranges pages so odd pages print on front, even pages print inverted on back</p>
-            <p>When printed duplex, page 2 appears correctly behind page 1</p>
+            <p>Combines pages 1&3 side-by-side on front of each sheet</p>
+            <p>Combines inverted pages 2&4 side-by-side on back of each sheet</p>
+            <p>Creates perfect booklet alignment when printed duplex and folded</p>
             <p>All processing happens locally - your files remain private</p>
         </div>
     </div>
@@ -458,37 +458,96 @@
                 // Load the PDF with pdf-lib
                 const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
                 const originalPages = pdfDoc.getPages();
-                updateProgress(40);
+                updateProgress(30);
 
-                showStatus(`Processing ${originalPages.length} pages for duplex printing...`, 'processing');
+                showStatus(`Creating booklet layout from ${originalPages.length} pages...`, 'processing');
 
-                // Create a new PDF document
-                const newPdfDoc = await PDFLib.PDFDocument.create();
+                // Create a new PDF document for the booklet
+                const bookletDoc = await PDFLib.PDFDocument.create();
                 
-                // Copy all original pages
-                const copiedPages = await newPdfDoc.copyPages(pdfDoc, Array.from({length: originalPages.length}, (_, i) => i));
-                
-                updateProgress(60);
-
-                // Arrange pages for duplex printing:
-                // Page 1 (front), Page 2 inverted (back), Page 3 (front), Page 4 inverted (back), etc.
-                for (let i = 0; i < copiedPages.length; i++) {
-                    const page = copiedPages[i];
+                // Process pages in groups of 4 to create booklet sheets
+                for (let i = 0; i < originalPages.length; i += 4) {
+                    const pageGroup = [];
                     
-                    // If this is an even-numbered page (index 1, 3, 5... which are pages 2, 4, 6...)
-                    if ((i + 1) % 2 === 0) {
-                        // Rotate 180 degrees so it prints correctly on the back
-                        page.setRotation(PDFLib.degrees(180));
+                    // Get up to 4 pages for this group
+                    for (let j = 0; j < 4; j++) {
+                        if (i + j < originalPages.length) {
+                            pageGroup.push(originalPages[i + j]);
+                        } else {
+                            pageGroup.push(null); // Empty page
+                        }
                     }
                     
-                    // Add page to new document in original order
-                    newPdfDoc.addPage(page);
+                    updateProgress(30 + (i / originalPages.length) * 30);
                     
-                    updateProgress(60 + (i / copiedPages.length) * 35);
+                    // Get dimensions from the first page
+                    const firstPage = pageGroup.find(p => p !== null);
+                    if (!firstPage) continue;
+                    
+                    const { width: pageWidth, height: pageHeight } = firstPage.getSize();
+                    
+                    // Create front sheet: Page 1 (left) + Page 3 (right)
+                    const frontPage = bookletDoc.addPage([pageWidth * 2, pageHeight]);
+                    
+                    // Copy and embed page 1 on the left side
+                    if (pageGroup[0]) {
+                        const [embeddedPage1] = await bookletDoc.copyPages(pdfDoc, [i]);
+                        frontPage.drawPage(embeddedPage1, {
+                            x: 0,
+                            y: 0,
+                            width: pageWidth,
+                            height: pageHeight
+                        });
+                    }
+                    
+                    // Copy and embed page 3 on the right side
+                    if (pageGroup[2]) {
+                        const [embeddedPage3] = await bookletDoc.copyPages(pdfDoc, [i + 2]);
+                        frontPage.drawPage(embeddedPage3, {
+                            x: pageWidth,
+                            y: 0,
+                            width: pageWidth,
+                            height: pageHeight
+                        });
+                    }
+                    
+                    updateProgress(30 + (i / originalPages.length) * 40);
+                    
+                    // Create back sheet: Inverted Page 4 (left) + Inverted Page 2 (right)
+                    // Note: Back page order is reversed for proper booklet alignment
+                    const backPage = bookletDoc.addPage([pageWidth * 2, pageHeight]);
+                    
+                    // Copy and embed inverted page 4 on the left side
+                    if (pageGroup[3]) {
+                        const [embeddedPage4] = await bookletDoc.copyPages(pdfDoc, [i + 3]);
+                        // Rotate 180 degrees and position
+                        backPage.drawPage(embeddedPage4, {
+                            x: pageWidth,
+                            y: pageHeight,
+                            width: pageWidth,
+                            height: pageHeight,
+                            rotate: PDFLib.degrees(180)
+                        });
+                    }
+                    
+                    // Copy and embed inverted page 2 on the right side
+                    if (pageGroup[1]) {
+                        const [embeddedPage2] = await bookletDoc.copyPages(pdfDoc, [i + 1]);
+                        // Rotate 180 degrees and position
+                        backPage.drawPage(embeddedPage2, {
+                            x: 0,
+                            y: pageHeight,
+                            width: pageWidth,
+                            height: pageHeight,
+                            rotate: PDFLib.degrees(180)
+                        });
+                    }
+                    
+                    updateProgress(30 + (i / originalPages.length) * 50);
                 }
 
-                // Serialize the final PDF
-                const pdfBytes = await newPdfDoc.save();
+                // Serialize the final booklet PDF
+                const pdfBytes = await bookletDoc.save();
                 updateProgress(100);
 
                 // Create download link
