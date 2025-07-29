@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paycha Formatter</title>
+    <title>PDF Paycha Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tibetan:wght@400;700&display=swap');
+        
         * {
             margin: 0;
             padding: 0;
@@ -13,82 +15,147 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Noto Sans Tibetan', 'Arial Unicode MS', sans-serif;
+            background: linear-gradient(135deg, #8B0000 0%, #FF6B35 30%, #F7931E 70%, #FFD700 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Traditional Tibetan cloud pattern background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 40%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.12) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
         }
 
         .container {
-            background: rgba(255, 255, 255, 0.95);
+            background: linear-gradient(145deg, rgba(139, 0, 0, 0.9), rgba(255, 107, 53, 0.8));
             backdrop-filter: blur(10px);
-            border-radius: 20px;
+            border: 3px solid #FFD700;
+            border-radius: 15px;
             padding: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 215, 0, 0.3);
+            max-width: 600px;
             width: 100%;
             text-align: center;
+            position: relative;
+        }
+
+        /* Decorative corner elements */
+        .container::before,
+        .container::after {
+            content: '☸';
+            position: absolute;
+            font-size: 2em;
+            color: #FFD700;
+            opacity: 0.7;
+        }
+
+        .container::before {
+            top: 15px;
+            left: 15px;
+        }
+
+        .container::after {
+            bottom: 15px;
+            right: 15px;
+            transform: rotate(180deg);
         }
 
         .title {
-            font-size: 2.5em;
+            font-size: 2.8em;
             font-weight: 700;
-            color: #2d3748;
+            color: #FFD700;
             margin-bottom: 10px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            position: relative;
         }
 
         .subtitle {
-            color: #718096;
+            color: #FFF8DC;
             margin-bottom: 30px;
-            font-size: 1.1em;
+            font-size: 1.2em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            font-weight: 400;
+        }
+
+        .tibetan-pattern {
+            width: 100%;
+            height: 6px;
+            background: repeating-linear-gradient(
+                90deg,
+                #FFD700 0px,
+                #FFD700 10px,
+                #8B0000 10px,
+                #8B0000 20px,
+                #FF6B35 20px,
+                #FF6B35 30px
+            );
+            margin: 20px 0;
+            border-radius: 3px;
         }
 
         .upload-area {
-            border: 3px dashed #cbd5e0;
+            border: 3px dashed #FFD700;
             border-radius: 15px;
             padding: 40px 20px;
             margin-bottom: 20px;
             transition: all 0.3s ease;
             cursor: pointer;
             position: relative;
-            overflow: hidden;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(139, 0, 0, 0.2));
         }
 
         .upload-area:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-            transform: translateY(-2px);
+            border-color: #FFF8DC;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(139, 0, 0, 0.3));
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
         .upload-area.dragover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
+            border-color: #FFF8DC;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(139, 0, 0, 0.4));
             transform: scale(1.02);
         }
 
         .upload-icon {
-            font-size: 3em;
-            color: #a0aec0;
+            font-size: 4em;
+            color: #FFD700;
             margin-bottom: 15px;
             transition: all 0.3s ease;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .upload-icon::before {
+            content: '📄';
         }
 
         .upload-area:hover .upload-icon {
-            color: #667eea;
-            transform: scale(1.1);
+            transform: scale(1.1) rotate(5deg);
         }
 
         .upload-text {
-            color: #4a5568;
-            font-size: 1.1em;
+            color: #FFF8DC;
+            font-size: 1.2em;
             font-weight: 500;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         .file-input {
@@ -96,41 +163,50 @@
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 50px;
-            font-size: 1.1em;
-            font-weight: 600;
+            background: linear-gradient(135deg, #8B0000, #FF6B35);
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            padding: 15px 35px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
             display: inline-block;
             margin: 10px;
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 
+                0 8px 16px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 215, 0, 0.3);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            font-family: 'Noto Sans Tibetan', sans-serif;
         }
 
         .btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+            box-shadow: 
+                0 12px 24px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 215, 0, 0.4);
+            background: linear-gradient(135deg, #A0001A, #FF8555);
         }
 
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
-            box-shadow: 0 5px 10px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
         .status {
             margin: 20px 0;
-            padding: 15px;
-            border-radius: 10px;
-            font-weight: 500;
+            padding: 18px;
+            border-radius: 12px;
+            font-weight: 600;
             opacity: 0;
             transform: translateY(10px);
             transition: all 0.3s ease;
+            border: 2px solid transparent;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .status.show {
@@ -139,64 +215,86 @@
         }
 
         .status.success {
-            background: rgba(72, 187, 120, 0.1);
-            color: #2f855a;
-            border: 1px solid rgba(72, 187, 120, 0.3);
+            background: linear-gradient(135deg, rgba(0, 128, 0, 0.8), rgba(34, 139, 34, 0.6));
+            color: #F0FFF0;
+            border-color: #90EE90;
         }
 
         .status.error {
-            background: rgba(245, 101, 101, 0.1);
-            color: #c53030;
-            border: 1px solid rgba(245, 101, 101, 0.3);
+            background: linear-gradient(135deg, rgba(139, 0, 0, 0.8), rgba(178, 34, 34, 0.6));
+            color: #FFE4E1;
+            border-color: #FF6B6B;
         }
 
         .status.processing {
-            background: rgba(102, 126, 234, 0.1);
-            color: #4c51bf;
-            border: 1px solid rgba(102, 126, 234, 0.3);
+            background: linear-gradient(135deg, rgba(255, 107, 53, 0.8), rgba(247, 147, 30, 0.6));
+            color: #FFF8DC;
+            border-color: #FFD700;
         }
 
         .file-info {
-            background: rgba(102, 126, 234, 0.1);
-            padding: 15px;
-            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(139, 0, 0, 0.3));
+            padding: 18px;
+            border-radius: 12px;
             margin: 15px 0;
-            color: #4c51bf;
+            color: #FFF8DC;
             display: none;
+            border: 1px solid #FFD700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         .progress-bar {
             width: 100%;
-            height: 6px;
-            background: rgba(102, 126, 234, 0.2);
-            border-radius: 3px;
-            margin: 10px 0;
+            height: 8px;
+            background: rgba(139, 0, 0, 0.3);
+            border-radius: 4px;
+            margin: 15px 0;
             overflow: hidden;
             display: none;
+            border: 1px solid #FFD700;
         }
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            background: linear-gradient(90deg, #FFD700, #FF6B35, #F7931E);
             width: 0%;
             transition: width 0.3s ease;
             border-radius: 3px;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
 
         .explanation {
-            background: rgba(255, 255, 255, 0.7);
-            padding: 20px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(139, 0, 0, 0.25));
+            border: 2px solid #FFD700;
+            padding: 25px;
             border-radius: 15px;
             margin-top: 20px;
             text-align: left;
-            color: #4a5568;
-            line-height: 1.6;
+            color: #FFF8DC;
+            line-height: 1.8;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         .explanation h3 {
-            color: #2d3748;
-            margin-bottom: 10px;
-            font-size: 1.2em;
+            color: #FFD700;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .explanation p {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .explanation p::before {
+            content: '•';
+            color: #FFD700;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
         }
 
         @keyframes pulse {
@@ -207,15 +305,45 @@
         .processing {
             animation: pulse 2s infinite;
         }
+
+        /* Traditional Tibetan decorative elements */
+        .lotus-decoration {
+            width: 60px;
+            height: 8px;
+            background: repeating-linear-gradient(
+                45deg,
+                #FFD700,
+                #FFD700 4px,
+                transparent 4px,
+                transparent 8px
+            );
+            margin: 0 auto 20px auto;
+            border-radius: 4px;
+        }
+
+        /* Prayer wheel animation for processing */
+        @keyframes prayer-wheel {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .processing-icon {
+            display: inline-block;
+            animation: prayer-wheel 2s linear infinite;
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="title">Paycha Formatter</h1>
-        <p class="subtitle">Reverse every even-numbered page in your PDF</p>
+        <div class="lotus-decoration"></div>
+        <h1 class="title">PDF Page Reverser</h1>
+        <p class="subtitle">Reverse every even-numbered page in your PDF document</p>
+        <div class="tibetan-pattern"></div>
         
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <div class="upload-icon">📁</div>
+            <div class="upload-icon"></div>
             <div class="upload-text">Click here or drag & drop your PDF file</div>
         </div>
         
@@ -230,13 +358,15 @@
         <button class="btn" id="processBtn" disabled>Process PDF</button>
         <a class="btn" id="downloadBtn" style="display: none;">Download Processed PDF</a>
         
+        <div class="tibetan-pattern"></div>
+        
         <div class="explanation">
-            <h3>What this app does:</h3>
-            <p>• Uploads your PDF file safely in your browser</p>
-            <p>• Rotates every even-numbered page by 180 degrees</p>
-            <p>• Keeps odd-numbered pages unchanged</p>
-            <p>• Generates a new PDF for download</p>
-            <p>• All processing happens locally - your files never leave your device!</p>
+            <h3>What this application does</h3>
+            <p>Uploads your PDF file safely within your browser</p>
+            <p>Rotates every even-numbered page by 180 degrees</p>
+            <p>Keeps odd-numbered pages in their original orientation</p>
+            <p>Generates a new PDF document for download</p>
+            <p>All processing happens locally - your files remain private</p>
         </div>
     </div>
 
@@ -289,11 +419,12 @@
             fileInfo.style.display = 'block';
             
             processBtn.disabled = false;
-            showStatus('File selected! Click "Process PDF" to continue.', 'success');
+            showStatus('File selected successfully. Click "Process PDF" to continue.', 'success');
         }
 
         function showStatus(message, type) {
-            status.textContent = message;
+            const processingIcon = type === 'processing' ? '<span class="processing-icon">☸</span>' : '';
+            status.innerHTML = processingIcon + message;
             status.className = `status ${type} show`;
             
             if (type === 'error') {
@@ -317,7 +448,7 @@
             try {
                 processBtn.disabled = true;
                 processBtn.classList.add('processing');
-                showStatus('Processing PDF... Please wait.', 'processing');
+                showStatus('Processing PDF document... Please wait.', 'processing');
                 updateProgress(10);
 
                 // Read the PDF file
@@ -351,12 +482,12 @@
                 downloadBtn.download = selectedFile.name.replace('.pdf', '_even_pages_reversed.pdf');
                 downloadBtn.style.display = 'inline-block';
                 
-                showStatus('✅ PDF processed successfully! Even pages have been reversed.', 'success');
+                showStatus('PDF processed successfully! Even pages have been reversed.', 'success');
                 progressBar.style.display = 'none';
 
             } catch (error) {
                 console.error('Error processing PDF:', error);
-                showStatus('❌ Error processing PDF. Please ensure it\'s a valid PDF file.', 'error');
+                showStatus('Error processing PDF. Please ensure it is a valid PDF file.', 'error');
                 progressBar.style.display = 'none';
             } finally {
                 processBtn.disabled = false;
