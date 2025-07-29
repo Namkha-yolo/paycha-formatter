@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Paycha Editor</title>
+    <title>PDF Even Page Reverser - Tibetan Style</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tibetan:wght@400;700&display=swap');
@@ -339,7 +339,7 @@
     <div class="container">
         <div class="lotus-decoration"></div>
         <h1 class="title">PDF Page Reverser</h1>
-        <p class="subtitle">Reverse every even-numbered page in your PDF document</p>
+        <p class="subtitle">Combine pages (n with n+2) and reverse even-numbered pages</p>
         <div class="tibetan-pattern"></div>
         
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
@@ -363,8 +363,8 @@
         <div class="explanation">
             <h3>What this application does</h3>
             <p>Uploads your PDF file safely within your browser</p>
-            <p>Rotates every even-numbered page by 180 degrees</p>
-            <p>Keeps odd-numbered pages in their original orientation</p>
+            <p>Combines page n with page n+2 (e.g., page 1 with page 3, page 2 with page 4)</p>
+            <p>Rotates every even-numbered page by 180 degrees after combining</p>
             <p>Generates a new PDF document for download</p>
             <p>All processing happens locally - your files remain private</p>
         </div>
@@ -458,20 +458,89 @@
                 // Load the PDF with pdf-lib
                 const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
                 const pages = pdfDoc.getPages();
-                updateProgress(50);
+                updateProgress(40);
 
-                showStatus(`Processing ${pages.length} pages...`, 'processing');
+                showStatus(`Processing ${pages.length} pages - combining and rotating...`, 'processing');
 
-                // Rotate even-numbered pages (0-indexed, so pages at index 1, 3, 5, etc.)
-                for (let i = 0; i < pages.length; i++) {
-                    if ((i + 1) % 2 === 0) { // Even page numbers (1-indexed)
-                        pages[i].setRotation(PDFLib.degrees(180));
+                // Step 1: Combine pages (n with n+2)
+                // Create a new PDF document for the rearranged pages
+                const newPdfDoc = await PDFLib.PDFDocument.create();
+                
+                // Process pages in pairs, combining n with n+2
+                let processedPages = [];
+                
+                for (let i = 0; i < pages.length; i += 2) {
+                    if (i < pages.length) {
+                        // Get page n
+                        const pageN = pages[i];
+                        processedPages.push(pageN);
+                        
+                        // Get page n+2 if it exists
+                        if (i + 2 < pages.length) {
+                            const pageNPlus2 = pages[i + 2];
+                            processedPages.push(pageNPlus2);
+                        }
                     }
-                    updateProgress(50 + (i / pages.length) * 40);
+                }
+                
+                // Add any remaining pages that weren't part of the n+2 pairing
+                for (let i = 1; i < pages.length; i += 2) {
+                    if (i + 2 >= pages.length) {
+                        // Add the page that didn't get paired
+                        if (pages[i]) {
+                            processedPages.push(pages[i]);
+                        }
+                    }
                 }
 
-                // Serialize the PDF
-                const pdfBytes = await pdfDoc.save();
+                updateProgress(60);
+
+                // Copy all pages to new document
+                const copiedPages = await newPdfDoc.copyPages(pdfDoc, Array.from({length: pages.length}, (_, i) => i));
+                
+                // Clear the new document and add pages in the new order
+                while (newPdfDoc.getPages().length > 0) {
+                    newPdfDoc.removePage(0);
+                }
+                
+                // Create the page combination mapping
+                let pageMapping = [];
+                for (let i = 0; i < pages.length; i += 2) {
+                    if (i < pages.length) {
+                        pageMapping.push(i); // page n
+                        if (i + 2 < pages.length) {
+                            pageMapping.push(i + 2); // page n+2
+                        }
+                    }
+                }
+                
+                // Add remaining pages
+                for (let i = 1; i < pages.length; i += 2) {
+                    if (!pageMapping.includes(i)) {
+                        pageMapping.push(i);
+                    }
+                }
+
+                // Add pages to new document in the mapped order
+                for (let pageIndex of pageMapping) {
+                    if (pageIndex < copiedPages.length) {
+                        newPdfDoc.addPage(copiedPages[pageIndex]);
+                    }
+                }
+
+                updateProgress(75);
+
+                // Step 2: Rotate even-numbered pages in the new arrangement
+                const finalPages = newPdfDoc.getPages();
+                for (let i = 0; i < finalPages.length; i++) {
+                    if ((i + 1) % 2 === 0) { // Even page numbers (1-indexed)
+                        finalPages[i].setRotation(PDFLib.degrees(180));
+                    }
+                    updateProgress(75 + (i / finalPages.length) * 20);
+                }
+
+                // Serialize the final PDF
+                const pdfBytes = await newPdfDoc.save();
                 updateProgress(100);
 
                 // Create download link
@@ -479,10 +548,10 @@
                 const url = URL.createObjectURL(blob);
                 
                 downloadBtn.href = url;
-                downloadBtn.download = selectedFile.name.replace('.pdf', '_even_pages_reversed.pdf');
+                downloadBtn.download = selectedFile.name.replace('.pdf', '_combined_and_reversed.pdf');
                 downloadBtn.style.display = 'inline-block';
                 
-                showStatus('PDF processed successfully! Even pages have been reversed.', 'success');
+                showStatus('PDF processed successfully! Pages combined and even pages reversed.', 'success');
                 progressBar.style.display = 'none';
 
             } catch (error) {
